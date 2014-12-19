@@ -380,7 +380,7 @@ static int RN_SecRandomCopyBytes(void *rnd, size_t count, uint8_t *bytes) {
 
     NSString *queueName = [@"net.robnapier." stringByAppendingString:NSStringFromClass([self class])];
     _queue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_SERIAL);
-    __outData = [NSMutableData data];
+    __outData = [[NSMutableData alloc] init];
 
     _handler = [handler copy];
   }
@@ -402,6 +402,14 @@ static int RN_SecRandomCopyBytes(void *rnd, size_t count, uint8_t *bytes) {
 #endif
     _queue = NULL;
   }
+    
+#if !__has_feature(objc_arc)
+    [_handler release];
+    [_error release];
+    [__outData release];
+    [_engine release];
+    [super dealloc];
+#endif
 }
 
 - (void)setResponseQueue:(dispatch_queue_t)aResponseQueue

@@ -260,7 +260,7 @@ static const NSUInteger kPreambleSize = 2;
 
   NSData *header = [data subdataWithRange:NSMakeRange(0, headerSize)];  // We'll need this for the HMAC later
 
-  [[data _RNConsumeToIndex:kPreambleSize] mutableCopy]; // Throw away the preamble
+  [data _RNConsumeToIndex:kPreambleSize]; // Throw away the preamble
 
   NSError *error = nil;
   if (self.options & kRNCryptorOptionHasPassword) {
@@ -276,7 +276,11 @@ static const NSUInteger kPreambleSize = 2;
 
   NSData *IV = [data _RNConsumeToIndex:self.settings.IVSize];
 
-  self.engine = [[RNCryptorEngine alloc] initWithOperation:kCCDecrypt settings:self.settings key:self.encryptionKey IV:IV error:&error];
+  RNCryptorEngine *engine = [[RNCryptorEngine alloc] initWithOperation:kCCDecrypt settings:self.settings key:self.encryptionKey IV:IV error:&error];
+  self.engine = engine;
+#if !__has_feature(objc_arc)
+  [engine release];
+#endif
   self.encryptionKey = nil; // Don't need this anymore
   if (!self.engine) {
     [self cleanupAndNotifyWithError:error];

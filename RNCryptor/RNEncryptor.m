@@ -51,6 +51,9 @@
   RNEncryptor *cryptor = [[self alloc] initWithSettings:theSettings
                                                password:aPassword
                                                 handler:^(RNCryptor *c, NSData *d) {}];
+#if !__has_feature(objc_arc)
+    [cryptor autorelease];
+#endif
   return [self synchronousResultForCryptor:cryptor data:thePlaintext error:anError];
 }
 
@@ -68,6 +71,9 @@
                                          encryptionSalt:anEncryptionSalt
                                                HMACSalt:anHMACSalt
                                                 handler:^(RNCryptor *c, NSData *d) {}];
+#if !__has_feature(objc_arc)
+    [cryptor autorelease];
+#endif
   return [self synchronousResultForCryptor:cryptor data:thePlaintext error:anError];
 }
 
@@ -76,6 +82,9 @@
                                           encryptionKey:anEncryptionKey
                                                 HMACKey:anHMACKey
                                                 handler:^(RNCryptor *c, NSData *d) {}];
+#if !__has_feature(objc_arc)
+    [cryptor autorelease];
+#endif
   return [self synchronousResultForCryptor:cryptor data:thePlaintext error:anError];
 }
 
@@ -92,6 +101,9 @@
                                                 HMACKey:anHMACKey
                                                      IV:anIV
                                                 handler:^(RNCryptor *c, NSData *d) {}];
+#if !__has_feature(objc_arc)
+    [cryptor autorelease];
+#endif
   return [self synchronousResultForCryptor:cryptor data:thePlaintext error:anError];
 }
 
@@ -122,16 +134,24 @@
     }
 
     NSError *error = nil;
-    self.engine = [[RNCryptorEngine alloc] initWithOperation:kCCEncrypt
-                                                    settings:theSettings
-                                                         key:anEncryptionKey
-                                                          IV:self.IV
-                                                       error:&error];
-    if (!self.engine) {
+    RNCryptorEngine *engine = [[RNCryptorEngine alloc] initWithOperation:kCCEncrypt
+                                                                settings:theSettings
+                                                                     key:anEncryptionKey
+                                                                      IV:self.IV
+                                                                   error:&error];
+    if (engine == nil) {
+#if !__has_feature(objc_arc)
+      [self release];
+#endif
       [self cleanupAndNotifyWithError:error];
       self = nil;
       return nil;
     }
+      
+    self.engine = engine;
+#if !__has_feature(objc_arc)
+    [engine release];
+#endif
   }
 
   return self;
@@ -194,6 +214,9 @@
   }
 
   dispatch_async(self.queue, ^{
+    if (self.isFinished) {
+      return;
+    }
     if (!self.haveWrittenHeader) {
       NSData *header = [self header];
       [self.outData setData:header];
@@ -215,7 +238,9 @@
     [self.outData appendData:encryptedData];
 
     dispatch_sync(self.responseQueue, ^{
-      self.handler(self, self.outData);
+      if (self.handler) {
+        self.handler(self, self.outData);
+      }
     });
     [self.outData setLength:0];
   });
@@ -228,6 +253,9 @@
   }
 
   dispatch_async(self.queue, ^{
+    if (self.isFinished) {
+      return;
+    }
     NSError *error = nil;
     NSData *encryptedData = [self.engine finishWithError:&error];
     [self.outData appendData:encryptedData];
@@ -241,4 +269,13 @@
   });
 }
 
+- (void)dealloc
+{
+#if !__has_feature(objc_arc)
+    [_IV release];
+    [_HMACSalt release];
+    [_encryptionSalt release];
+    [super dealloc];
+#endif
+}
 @end
